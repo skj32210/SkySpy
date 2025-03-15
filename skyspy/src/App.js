@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import './App.css';
 
 // Open-Meteo API doesn't require an API key
@@ -14,49 +14,50 @@ function App() {
   const [error, setError] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
 
-  // Get current location weather on initial load
-  useEffect(() => {
-    if (navigator.geolocation) {
-      setLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          const { latitude, longitude } = position.coords;
-          setCoordinates({ latitude, longitude });
-          fetchWeatherData(latitude, longitude);
-          fetchLocationName(latitude, longitude);
-        },
-        error => {
-          setError("Unable to access location. Please search for a city.");
-          setLoading(false);
-        }
-      );
-    } else {
-      setError("Geolocation is not supported by your browser.");
-    }
-  }, []);
+useEffect(() => {
+  if (navigator.geolocation) {
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const { latitude, longitude } = position.coords;
+        setCoordinates({ latitude, longitude });
+        fetchWeatherData(latitude, longitude);
+        fetchLocationName(latitude, longitude);
+      },
+      error => {
+        setError("Unable to access location. Please search for a city.");
+        setLoading(false);
+      }
+    );
+  } else {
+    setError("Geolocation is not supported by your browser.");
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
-  // Re-fetch data when units change
-  useEffect(() => {
-    if (coordinates) {
-      fetchWeatherData(coordinates.latitude, coordinates.longitude);
-    }
-  }, [units]);
+// Re-fetch data when units change or coordinates change
+useEffect(() => {
+  if (coordinates) {
+    fetchWeatherData(coordinates.latitude, coordinates.longitude);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [units, coordinates]);
 
-  // Fetch weather data by coordinates from Open-Meteo
-  const fetchWeatherData = async (lat, lon) => {
+
+  const fetchWeatherData = useCallback(async (lat, lon) => {
     try {
       setLoading(true);
       const tempUnit = units === 'celsius' ? 'celsius' : 'fahrenheit';
       const response = await fetch(
         `${BASE_URL}?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,pressure_msl,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum&temperature_unit=${tempUnit}&wind_speed_unit=ms&forecast_days=7`
       );
-      
+  
       if (!response.ok) {
         throw new Error('Weather data not available');
       }
-      
+  
       const data = await response.json();
-      
+  
       // Process current weather data
       const currentWeather = {
         dt: new Date().getTime() / 1000,
@@ -80,9 +81,9 @@ function App() {
           lon: lon
         }
       };
-      
+  
       setWeatherData(currentWeather);
-      
+  
       // Process forecast data
       const dailyForecast = data.daily.time.map((time, index) => {
         return {
@@ -99,14 +100,42 @@ function App() {
           ]
         };
       });
-      
+  
       setForecastData(dailyForecast);
       setLoading(false);
     } catch (error) {
       setError(error.message);
       setLoading(false);
     }
-  };
+  }, [units]);
+  
+  // Initial fetch for current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude } = position.coords;
+          setCoordinates({ latitude, longitude });
+          fetchWeatherData(latitude, longitude);
+          fetchLocationName(latitude, longitude);
+        },
+        error => {
+          setError("Unable to access location. Please search for a city.");
+          setLoading(false);
+        }
+      );
+    } else {
+      setError("Geolocation is not supported by your browser.");
+    }
+  }, [fetchWeatherData]);
+  
+  // Re-fetch data when units change or coordinates change
+  useEffect(() => {
+    if (coordinates) {
+      fetchWeatherData(coordinates.latitude, coordinates.longitude);
+    }
+  }, [units, coordinates, fetchWeatherData]);
 
   // Get location name from coordinates using OpenCage Geocoding API
   const fetchLocationName = async (lat, lon) => {
