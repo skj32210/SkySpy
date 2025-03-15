@@ -118,19 +118,27 @@ useEffect(() => {
   // Get location name from coordinates using OpenCage Geocoding API
   const fetchLocationName = async (lat, lon) => {
     try {
-      // Replace with your actual API key
-      const API_KEY = "YOUR_OPENCAGE_API_KEY"; // You need to get a real API key
+      // Using Nominatim API instead of OpenCage (no API key required)
       const response = await fetch(
-        `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${API_KEY}`
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
       );
       
       if (response.ok) {
         const data = await response.json();
-        if (data.results && data.results.length > 0) {
-          const result = data.results[0];
-          const city = result.components.city || result.components.town || result.components.village || result.components.county;
-          const country = result.components.country;
-          setLocation(`${city}, ${country}`);
+        if (data) {
+          // Extract city and country from the address object
+          const city = data.address.city || 
+                      data.address.town || 
+                      data.address.village || 
+                      data.address.county ||
+                      data.address.state;
+          const country = data.address.country;
+          
+          if (city && country) {
+            setLocation(`${city}, ${country}`);
+          } else {
+            setLocation(data.display_name.split(',').slice(0, 2).join(','));
+          }
         } else {
           setLocation(`${lat.toFixed(2)}, ${lon.toFixed(2)}`);
         }
@@ -139,6 +147,7 @@ useEffect(() => {
         setLocation(`${lat.toFixed(2)}, ${lon.toFixed(2)}`);
       }
     } catch (error) {
+      console.error("Error fetching location name:", error);
       setLocation(`${lat.toFixed(2)}, ${lon.toFixed(2)}`);
     }
   };
@@ -197,15 +206,28 @@ useEffect(() => {
 
   // Get weather icon based on WMO code
   const getWeatherIcon = (code) => {
-    // Map WMO weather codes to icons
-    if (code < 3) return "01d"; // Clear
-    if (code < 20) return "02d"; // Partly cloudy
-    if (code < 30) return "03d"; // Cloudy
-    if (code < 50) return "09d"; // Rain
-    if (code < 60) return "13d"; // Snow
-    if (code < 70) return "50d"; // Fog
-    if (code < 90) return "11d"; // Thunderstorm
-    return "01d"; // Default
+    // Clear sky and mainly clear
+    if (code === 0 || code === 1) return "01d";
+    // Partly cloudy
+    if (code === 2) return "02d";
+    // Overcast
+    if (code === 3) return "03d";
+    // Fog and depositing rime fog
+    if (code === 45 || code === 48) return "50d";
+    // Drizzle (light, moderate, dense, freezing)
+    if (code >= 51 && code <= 57) return "09d";
+    // Rain (slight, moderate, heavy, freezing)
+    if (code >= 61 && code <= 67) return "10d";
+    // Snow (slight, moderate, heavy, snow grains)
+    if (code >= 71 && code <= 77) return "13d";
+    // Rain showers (slight, moderate, violent)
+    if (code >= 80 && code <= 82) return "09d";
+    // Snow showers (slight, heavy)
+    if (code === 85 || code === 86) return "13d";
+    // Thunderstorm (with or without hail)
+    if (code >= 95 && code <= 99) return "11d";
+    // Default case
+    return "01d";
   };
 
   // Get weather description based on WMO code
@@ -213,16 +235,33 @@ useEffect(() => {
     if (code === 0) return "Clear sky";
     if (code === 1) return "Mainly clear";
     if (code === 2) return "Partly cloudy";
-    if (code === 3) return "Overcast";
-    if (code <= 19) return "Fog";
-    if (code <= 29) return "Drizzle";
-    if (code <= 39) return "Rain";
-    if (code <= 49) return "Snow";
-    if (code <= 59) return "Freezing rain";
-    if (code <= 69) return "Snow fall";
-    if (code <= 79) return "Rain showers";
-    if (code <= 89) return "Snow showers";
-    if (code <= 99) return "Thunderstorm";
+    if (code === 3) return "cloudy";
+    if (code === 45) return "Fog";
+    if (code === 48) return "Depositing rime fog";
+    if (code === 51) return "Light drizzle";
+    if (code === 53) return "Moderate drizzle";
+    if (code === 55) return "Dense drizzle";
+    if (code === 56) return "Light freezing drizzle";
+    if (code === 57) return "Dense freezing drizzle";
+    if (code === 61) return "Slight rain";
+    if (code === 63) return "Moderate rain";
+    if (code === 65) return "Heavy rain";
+    if (code === 66) return "Light freezing rain";
+    if (code === 67) return "Heavy freezing rain";
+    if (code === 68) return "Sleet";
+    if (code === 71) return "Light snow showers";
+    if (code === 73) return "Moderate snow showers";
+    if (code === 75) return "Heavy snow showers";
+    if (code === 77) return "Light snowfall";
+    if (code === 79) return "Moderate snowfall";
+    if (code === 81) return "Heavy snowfall";
+    if (code === 82) return "Thunderstorm";
+    if (code === 85) return "Light snow shower";
+    if (code === 87) return "Moderate snow shower";
+    if (code === 89) return "Heavy snow shower";
+    if (code === 95) return "Light rain shower";
+    if (code === 97) return "Moderate rain shower";
+    if (code === 99) return "Heavy rain shower";
     return "Unknown";
   };
 
