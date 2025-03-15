@@ -14,35 +14,33 @@ function App() {
   const [error, setError] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
 
-useEffect(() => {
-  if (navigator.geolocation) {
-    setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const { latitude, longitude } = position.coords;
-        setCoordinates({ latitude, longitude });
-        fetchWeatherData(latitude, longitude);
-        fetchLocationName(latitude, longitude);
-      },
-      error => {
-        setError("Unable to access location. Please search for a city.");
-        setLoading(false);
-      }
-    );
-  } else {
-    setError("Geolocation is not supported by your browser.");
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  // Fetch weather data based on current location (on initial mount)
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude } = position.coords;
+          setCoordinates({ latitude, longitude });
+          fetchWeatherData(latitude, longitude);
+          fetchLocationName(latitude, longitude);
+        },
+        error => {
+          setError("Unable to access location. Please search for a city.");
+          setLoading(false);
+        }
+      );
+    } else {
+      setError("Geolocation is not supported by your browser.");
+    }
+  }, []); // Only run once on initial mount
 
-// Re-fetch data when units change or coordinates change
-useEffect(() => {
-  if (coordinates) {
-    fetchWeatherData(coordinates.latitude, coordinates.longitude);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [units, coordinates]);
-
+  // Re-fetch data when units change or coordinates change
+  useEffect(() => {
+    if (coordinates) {
+      fetchWeatherData(coordinates.latitude, coordinates.longitude);
+    }
+  }, [units, coordinates]); // Runs when either units or coordinates change
 
   const fetchWeatherData = useCallback(async (lat, lon) => {
     try {
@@ -86,10 +84,16 @@ useEffect(() => {
   
       // Process forecast data
       const dailyForecast = data.daily.time.map((time, index) => {
+        const [year, month, day] = time.split('-');
+        const dateUTC = new Date(Date.UTC(year, month - 1, day));
+        
+        // Add one day to fix the offset issue
+        dateUTC.setUTCDate(dateUTC.getUTCDate() + 1);
         return {
-          dt: new Date(time).getTime() / 1000,
+          dt: dateUTC.getTime() / 1000,
           main: {
             temp: data.daily.temperature_2m_max[index],
+            mintemp: data.daily.temperature_2m_min[index],
             feels_like: data.daily.apparent_temperature_max[index]
           },
           weather: [
@@ -108,34 +112,6 @@ useEffect(() => {
       setLoading(false);
     }
   }, [units]);
-  
-  // Initial fetch for current location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      setLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          const { latitude, longitude } = position.coords;
-          setCoordinates({ latitude, longitude });
-          fetchWeatherData(latitude, longitude);
-          fetchLocationName(latitude, longitude);
-        },
-        error => {
-          setError("Unable to access location. Please search for a city.");
-          setLoading(false);
-        }
-      );
-    } else {
-      setError("Geolocation is not supported by your browser.");
-    }
-  }, [fetchWeatherData]);
-  
-  // Re-fetch data when units change or coordinates change
-  useEffect(() => {
-    if (coordinates) {
-      fetchWeatherData(coordinates.latitude, coordinates.longitude);
-    }
-  }, [units, coordinates, fetchWeatherData]);
 
   // Get location name from coordinates using OpenCage Geocoding API
   const fetchLocationName = async (lat, lon) => {
@@ -166,35 +142,36 @@ useEffect(() => {
   };
 
   // searchCity function using Nominatim
-const searchCity = async (city) => {
-  setLoading(true);
-  try {
-    // Using Nominatim API (doesn't require API key but has usage limits)
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`
-    );
-    
-    if (!response.ok) {
-      throw new Error('City not found');
-    }
-    
-    const data = await response.json();
-    if (data && data.length > 0) {
-      const result = data[0];
-      const lat = parseFloat(result.lat);
-      const lon = parseFloat(result.lon);
+  const searchCity = async (city) => {
+    setLoading(true);
+    try {
+      // Using Nominatim API (doesn't require API key but has usage limits)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(city)}&format=json&limit=1`
+      );
       
-      setCoordinates({ latitude: lat, longitude: lon });
-      setLocation(result.display_name);
-      fetchWeatherData(lat, lon);
-    } else {
-      throw new Error('City not found');
+      if (!response.ok) {
+        throw new Error('City not found');
+      }
+      
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+        
+        setCoordinates({ latitude: lat, longitude: lon });
+        setLocation(result.display_name);
+        fetchWeatherData(lat, lon);
+      } else {
+        throw new Error('City not found');
+      }
+    } catch (error) {
+      setError(error.message);
+      setLoading(false);
     }
-  } catch (error) {
-    setError(error.message);
-    setLoading(false);
-  }
-};
+  };
+
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -206,7 +183,7 @@ const searchCity = async (city) => {
 
   // Toggle temperature units
   const toggleUnits = () => {
-    setUnits(prevUnits => prevUnits === 'celsius' ? 'fahrenheit' : 'celsius');
+    setUnits((prevUnits) => (prevUnits === 'celsius' ? 'fahrenheit' : 'celsius'));
     // No need to call fetchWeatherData here, the useEffect will handle it
   };
 
@@ -219,7 +196,6 @@ const searchCity = async (city) => {
   // Get weather icon based on WMO code
   const getWeatherIcon = (code) => {
     // Map WMO weather codes to icons
-    // This is a simplified mapping - you can create more detailed mappings
     if (code < 3) return "01d"; // Clear
     if (code < 20) return "02d"; // Partly cloudy
     if (code < 30) return "03d"; // Cloudy
@@ -232,7 +208,6 @@ const searchCity = async (city) => {
 
   // Get weather description based on WMO code
   const getWeatherDescription = (code) => {
-    // Map WMO weather codes to descriptions
     if (code === 0) return "Clear sky";
     if (code === 1) return "Mainly clear";
     if (code === 2) return "Partly cloudy";
@@ -307,14 +282,8 @@ const searchCity = async (city) => {
                 <span className="value">{weatherData.main.humidity}%</span>
               </div>
               <div className="detail">
-                <span className="label">Wind:</span>
-                <span className="value">
-                  {weatherData.wind.speed} m/s
-                </span>
-              </div>
-              <div className="detail">
-                <span className="label">Pressure:</span>
-                <span className="value">{weatherData.main.pressure} hPa</span>
+                <span className="label">Wind Speed:</span>
+                <span className="value">{weatherData.wind.speed} m/s</span>
               </div>
             </div>
           </div>
@@ -334,9 +303,12 @@ const searchCity = async (city) => {
                     className="forecast-icon"
                   />
                   <div className="forecast-temp">
-                    {Math.round(day.main.temp)}°{units === 'celsius' ? 'C' : 'F'}
+                    {Math.round(day.main.temp)}°{units === 'celsius' ? 'C' : 'F'} - 
+                    {Math.round(day.main.mintemp)}°{units === 'celsius' ? 'C' : 'F'}
                   </div>
                   <div className="forecast-desc">{day.weather[0].description}</div>
+                  
+                  
                 </div>
               ))}
             </div>
