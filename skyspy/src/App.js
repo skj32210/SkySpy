@@ -14,33 +14,35 @@ function App() {
   const [error, setError] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
 
-  // Fetch weather data based on current location (on initial mount)
-  useEffect(() => {
-    if (navigator.geolocation) {
-      setLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          const { latitude, longitude } = position.coords;
-          setCoordinates({ latitude, longitude });
-          fetchWeatherData(latitude, longitude);
-          fetchLocationName(latitude, longitude);
-        },
-        error => {
-          setError("Unable to access location. Please search for a city.");
-          setLoading(false);
-        }
-      );
-    } else {
-      setError("Geolocation is not supported by your browser.");
-    }
-  }, []); // Only run once on initial mount
+useEffect(() => {
+  if (navigator.geolocation) {
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const { latitude, longitude } = position.coords;
+        setCoordinates({ latitude, longitude });
+        fetchWeatherData(latitude, longitude);
+        fetchLocationName(latitude, longitude);
+      },
+      error => {
+        setError("Unable to access location. Please search for a city.");
+        setLoading(false);
+      }
+    );
+  } else {
+    setError("Geolocation is not supported by your browser.");
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
-  // Re-fetch data when units change or coordinates change
-  useEffect(() => {
-    if (coordinates) {
-      fetchWeatherData(coordinates.latitude, coordinates.longitude);
-    }
-  }, [units, coordinates]); // Runs when either units or coordinates change
+// Re-fetch data when units change or coordinates change
+useEffect(() => {
+  if (coordinates) {
+    fetchWeatherData(coordinates.latitude, coordinates.longitude);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [units, coordinates]);
+
 
   const fetchWeatherData = useCallback(async (lat, lon) => {
     try {
