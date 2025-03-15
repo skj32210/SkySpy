@@ -13,36 +13,48 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
+  const [darkMode, setDarkMode] = useState(false); // Add dark mode state
 
-useEffect(() => {
-  if (navigator.geolocation) {
-    setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      position => {
-        const { latitude, longitude } = position.coords;
-        setCoordinates({ latitude, longitude });
-        fetchWeatherData(latitude, longitude);
-        fetchLocationName(latitude, longitude);
-      },
-      error => {
-        setError("Unable to access location. Please search for a city.");
-        setLoading(false);
-      }
-    );
-  } else {
-    setError("Geolocation is not supported by your browser.");
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  useEffect(() => {
+    // Check if user prefers dark mode
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setDarkMode(prefersDark);
+    
+    // Apply theme on initial load
+    document.body.className = prefersDark ? 'dark-theme' : 'light-theme';
 
-// Re-fetch data when units change or coordinates change
-useEffect(() => {
-  if (coordinates) {
-    fetchWeatherData(coordinates.latitude, coordinates.longitude);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [units, coordinates]);
+    if (navigator.geolocation) {
+      setLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude } = position.coords;
+          setCoordinates({ latitude, longitude });
+          fetchWeatherData(latitude, longitude);
+          fetchLocationName(latitude, longitude);
+        },
+        error => {
+          setError("Unable to access location. Please search for a city.");
+          setLoading(false);
+        }
+      );
+    } else {
+      setError("Geolocation is not supported by your browser.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Re-fetch data when units change or coordinates change
+  useEffect(() => {
+    if (coordinates) {
+      fetchWeatherData(coordinates.latitude, coordinates.longitude);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [units, coordinates]);
+
+  // Toggle theme effect
+  useEffect(() => {
+    document.body.className = darkMode ? 'dark-theme' : 'light-theme';
+  }, [darkMode]);
 
   const fetchWeatherData = useCallback(async (lat, lon) => {
     try {
@@ -115,7 +127,7 @@ useEffect(() => {
     }
   }, [units]);
 
-  // Get location name from coordinates using OpenCage Geocoding API
+  // Get location name from coordinates using Nominatim API
   const fetchLocationName = async (lat, lon) => {
     try {
       // Using Nominatim API instead of OpenCage (no API key required)
@@ -195,7 +207,11 @@ useEffect(() => {
   // Toggle temperature units
   const toggleUnits = () => {
     setUnits((prevUnits) => (prevUnits === 'celsius' ? 'fahrenheit' : 'celsius'));
-    // No need to call fetchWeatherData here, the useEffect will handle it
+  };
+
+  // Toggle theme
+  const toggleTheme = () => {
+    setDarkMode(prevMode => !prevMode);
   };
 
   // Format date
@@ -269,9 +285,14 @@ useEffect(() => {
   const getIconUrl = (icon) => `http://openweathermap.org/img/wn/${icon}@2x.png`;
 
   return (
-    <div className="app">
+    <div className={`app ${darkMode ? 'dark-theme' : 'light-theme'}`}>
       <div className="container">
-        <h1>Weather App</h1>
+        <div className="header-row">
+          <h1>Weather App</h1>
+          <button onClick={toggleTheme} className="theme-toggle">
+            {darkMode ? '☀️' : '🌙'}
+          </button>
+        </div>
         
         {/* Search Form */}
         <form onSubmit={handleSubmit} className="search-form">
@@ -348,8 +369,6 @@ useEffect(() => {
                     {Math.round(day.main.mintemp)}°{units === 'celsius' ? 'C' : 'F'}
                   </div>
                   <div className="forecast-desc">{day.weather[0].description}</div>
-                  
-                  
                 </div>
               ))}
             </div>
