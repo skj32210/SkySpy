@@ -32,15 +32,12 @@ useEffect(() => {
   } else {
     setError("Geolocation is not supported by your browser.");
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
-// Re-fetch data when units change or coordinates change
 useEffect(() => {
   if (coordinates) {
     fetchWeatherData(coordinates.latitude, coordinates.longitude);
   }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [units, coordinates]);
 
 
