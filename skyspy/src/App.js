@@ -288,7 +288,7 @@ function App() {
     <div className={`app ${darkMode ? 'dark-theme' : 'light-theme'}`}>
       <div className="container">
         <div className="header-row">
-          <h1>Weather App</h1>
+          <h1>SkySpy</h1>
           <button onClick={toggleTheme} className="theme-toggle">
             {darkMode ? '☀️' : '🌙'}
           </button>
